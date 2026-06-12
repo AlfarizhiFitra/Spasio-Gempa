@@ -18,23 +18,33 @@ st.set_page_config(
 # ==============================================================================
 @st.cache_data
 def load_data():
-    # Membaca dataset 10 tahun hasil akuisisi cicilan bulanan
+    # Membaca dataset 10 tahun
     df = pd.read_csv("dataset_gempa_indonesia_10_tahun.csv")
     
-    # Memastikan format data waktu valid
+    # ==========================================================================
+    # PROSES PRAPEMROSESAN: ELIMINASI DATA NON-INDONESIA (Filipina & Timor Leste)
+    # ==========================================================================
+    # 1. Pastikan kolom lokasi dalam tipe data string dan hilangkan spasi berlebih
+    df['lokasi_deskripsi'] = df['lokasi_deskripsi'].astype(str).str.strip()
+    
+    # 2. Buat kondisi filter untuk membuang nama negara tetangga (Case-Insensitive)
+    kondisi_tetangga = (
+        df['lokasi_deskripsi'].str.contains('Philippines|Philippine|Manila|Mindanao', case=False, na=False) |
+        df['lokasi_deskripsi'].str.contains('Timor Leste|Timor-Leste|Dili', case=False, na=False)
+    )
+    
+    # 3. Ambil data yang TIDAK memenuhi kondisi tetangga di atas
+    df = df[~kondisi_tetangga].reset_index(drop=True)
+    
+    # ==========================================================================
+    # PROSES NORMALISASI ATRIBUT TEMPORAL
+    # ==========================================================================
     df['waktu_kejadian'] = pd.to_datetime(df['waktu_kejadian'])
     df['tahun_periode'] = df['waktu_kejadian'].dt.strftime('%Y')
-    df['bulan_nama'] = df['waktu_kejadian'].dt.strftime('%B') # Mengambil nama bulan (e.g., January, February)
-    df['bulan_angka'] = df['waktu_kejadian'].dt.month # Untuk kebutuhan sorting bulan agar berurutan
+    df['bulan_nama'] = df['waktu_kejadian'].dt.strftime('%B')
+    df['bulan_angka'] = df['waktu_kejadian'].dt.month
     
     return df
-
-# Memuat data ke aplikasi
-try:
-    df_gempa = load_data()
-except FileNotFoundError:
-    st.error("File 'dataset_gempa_indonesia_10_tahun.csv' tidak ditemukan. Silakan jalankan skrip akuisisi data 10 tahun terlebih dahulu!")
-    st.stop()
 
 
 # ==============================================================================
