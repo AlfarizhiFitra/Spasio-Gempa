@@ -14,37 +14,44 @@ st.set_page_config(
 )
 
 # ==============================================================================
-# 2. FUNGSI MEMBACA DATASET UTAMA (Menggunakan Caching)
+# 2. FUNGSI MEMBACA & PRAPEMROSESAN DATASET (Menggunakan Caching)
 # ==============================================================================
 @st.cache_data
 def load_data():
-    # Membaca dataset 10 tahun
+    # Membaca dataset 10 tahun hasil akuisisi
     df = pd.read_csv("dataset_gempa_indonesia_10_tahun.csv")
     
-    # ==========================================================================
-    # PROSES PRAPEMROSESAN: ELIMINASI DATA NON-INDONESIA (Filipina & Timor Leste)
-    # ==========================================================================
-    # 1. Pastikan kolom lokasi dalam tipe data string dan hilangkan spasi berlebih
+    # --------------------------------------------------------------------------
+    # PRAPEMROSESAN: ELIMINASI DATA NEGARA TETANGGA (Filipina & Timor Leste)
+    # --------------------------------------------------------------------------
+    # Memastikan kolom lokasi berupa string dan bersih dari spasi liar
     df['lokasi_deskripsi'] = df['lokasi_deskripsi'].astype(str).str.strip()
     
-    # 2. Buat kondisi filter untuk membuang nama negara tetangga (Case-Insensitive)
-    kondisi_tetangga = (
-        df['lokasi_deskripsi'].str.contains('Philippines|Philippine|Manila|Mindanao', case=False, na=False) |
-        df['lokasi_deskripsi'].str.contains('Timor Leste|Timor-Leste|Dili', case=False, na=False)
-    )
+    # Pola kata kunci wilayah luar Indonesia (Case-Insensitive)
+    pola_luar_negeri = 'Philippines|Philippine|Manila|Mindanao|Timor Leste|Timor-Leste|Dili'
     
-    # 3. Ambil data yang TIDAK memenuhi kondisi tetangga di atas
-    df = df[~kondisi_tetangga].reset_index(drop=True)
+    # Deteksi baris yang mengandung nama negara tetangga
+    is_luar_negeri = df['lokasi_deskripsi'].str.contains(pola_luar_negeri, case=False, na=False)
     
-    # ==========================================================================
-    # PROSES NORMALISASI ATRIBUT TEMPORAL
-    # ==========================================================================
+    # Hanya pertahankan data yang BUKAN luar negeri (~ membalikkan nilai boolean)
+    df = df[~is_luar_negeri].reset_index(drop=True)
+    
+    # --------------------------------------------------------------------------
+    # NORMALISASI ATRIBUT TEMPORAL
+    # --------------------------------------------------------------------------
     df['waktu_kejadian'] = pd.to_datetime(df['waktu_kejadian'])
     df['tahun_periode'] = df['waktu_kejadian'].dt.strftime('%Y')
-    df['bulan_nama'] = df['waktu_kejadian'].dt.strftime('%B')
-    df['bulan_angka'] = df['waktu_kejadian'].dt.month
+    df['bulan_nama'] = df['waktu_kejadian'].dt.strftime('%B') # Nama bulan murni string
+    df['bulan_angka'] = df['waktu_kejadian'].dt.month          # Untuk kebutuhan sorting internal
     
     return df
+
+# Memuat data ke lingkup variabel global aplikasi
+try:
+    df_gempa = load_data()
+except FileNotFoundError:
+    st.error("File 'dataset_gempa_indonesia_10_tahun.csv' tidak ditemukan. Silakan jalankan skrip akuisisi data terlebih dahulu!")
+    st.stop()
 
 
 # ==============================================================================
@@ -95,7 +102,7 @@ def halaman_dashboard():
         (df_gempa['magnitudo'] >= magnitudo_terpilih)
     ]
 
-    # Ringkasan Metrik Utama (Terintegrasi dengan Data Pembersihan Korban Jiwa)
+    # Ringkasan Metrik Utama
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Kejadian Gempa", len(df_filtered))
@@ -115,7 +122,7 @@ def halaman_dashboard():
     kolom_peta, kolom_grafik = st.columns([2, 1])
 
     with kolom_peta:
-        st.subheader(f"📍 Episentrum Spasial: {bulan_terpilih} {tahun_terpilih}")
+        st.subheader(f"📍 Episentrum Spasial: {bulan_terpilled if 'bulan_terpilih' in locals() else bulan_terpilih} {tahun_terpilih}")
         if not df_filtered.empty:
             fig_map = px.scatter_mapbox(
                 df_filtered, 
@@ -138,7 +145,6 @@ def halaman_dashboard():
     with kolom_grafik:
         st.subheader("📊 Distribusi Tingkat Dampak")
         if not df_filtered.empty:
-            # Grafik donat untuk melihat proporsi tingkat dampak korban gempa
             fig_pie = px.pie(
                 df_filtered, 
                 names='tingkat_dampak',
@@ -176,15 +182,12 @@ def halaman_ml_anomali():
 
     # 2. Proses Pemodelan Alur Machine Learning secara Real-Time
     with st.spinner("Model Machine Learning sedang menganalisis tren data makro..."):
-        # Ekstraksi matriks fitur numerik (X)
         X = df_gempa[['latitude', 'longitude', 'magnitudo', 'kedalaman_km']]
         
-        # Inisialisasi dan fitting objek model Isolation Forest
         clf = IsolationForest(contamination=kontaminasi, random_state=42)
         df_gempa['status_anomali'] = clf.fit_predict(X)
         df_gempa['skor_anomali'] = clf.score_samples(X)
         
-        # Transformasi label hasil prediksi untuk kebutuhan visual
         df_gempa['label_anomali'] = df_gempa['status_anomali'].apply(
             lambda x: '🚨 Anomali/Ekstrem' if x == -1 else '🟢 Normal'
         )
@@ -220,8 +223,8 @@ def halaman_ml_anomali():
         size="magnitudo",
         color="label_anomali", 
         color_discrete_map={
-            '🚨 Anomali/Ekstrem': '#ef4444', # Merah menyala untuk anomali
-            '🟢 Normal': '#10b981'          # Hijau tenang untuk normal
+            '🚨 Anomali/Ekstrem': '#ef4444', 
+            '🟢 Normal': '#10b981'          
         },
         hover_name="lokasi_deskripsi",
         hover_data={
@@ -240,7 +243,7 @@ def halaman_ml_anomali():
 
     st.markdown("---")
 
-    # 5. Penyajian Matriks Deteksi dalam Bentuk Tabel Data Informasi (Sorted by Extremity)
+    # 5. Penyajian Matriks Deteksi Tabel Data Informasi
     st.subheader("📋 Tabel Sampel Kejadian Gempa Kategori Anomali")
     st.markdown("Daftar di bawah menampilkan data gempa yang paling cepat diisolasi oleh algoritma berdasarkan tingkat keekstremannya:")
     
