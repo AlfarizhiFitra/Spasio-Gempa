@@ -108,7 +108,7 @@ def halaman_dashboard():
         st.metric("Total Kejadian Gempa", len(df_filtered))
     with col2:
         total_korban = df_filtered['korban_teridentifikasi'].sum() if not df_filtered.empty else 0
-        st.metric("Total Korban Teridentifikasi", f"{total_korban} Jiwa", delta="Saran Dosen", delta_color="off")
+        st.metric("Total Korban Teridentifikasi", f"{total_korban} Jiwa")
     with col3:
         gempa_terbesar = df_filtered['magnitudo'].max() if not df_filtered.empty else 0
         st.metric("Magnitudo Tertinggi", f"{gempa_terbesar} SR")
