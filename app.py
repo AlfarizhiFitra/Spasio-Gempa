@@ -122,7 +122,7 @@ def halaman_dashboard():
     kolom_peta, kolom_grafik = st.columns([2, 1])
 
     with kolom_peta:
-        st.subheader(f"📍 Episentrum Spasial: {bulan_terpilled if 'bulan_terpilih' in locals() else bulan_terpilih} {tahun_terpilih}")
+        st.subheader(f"📍 Episentrum Spasial: {bulan_terpilih} {tahun_terpilih}")
         if not df_filtered.empty:
             fig_map = px.scatter_mapbox(
                 df_filtered, 
