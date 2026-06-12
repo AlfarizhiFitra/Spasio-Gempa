@@ -218,8 +218,8 @@ def halaman_ml_anomali():
             "waktu_kejadian": True, 
             "magnitudo": True, 
             "kedalaman_km": True, 
-            "korban_teridentifikasi": True, # Menyertakan data korban di tooltip peta ML
-            "skor_anomali": ":.3f"          # Membatasi desimal skor anomali agar rapi
+            "korban_teridentifikasi": True, 
+            "skor_anomali": ":.3f"          
         },
         zoom=3.8, 
         center={"lat": -2.5, "lon": 118.0}, 
@@ -236,7 +236,17 @@ def halaman_ml_anomali():
     
     df_hanya_anomali = df_gempa[df_gempa['status_anomali'] == -1][
         ['waktu_kejadian', 'lokasi_deskripsi', 'magnitudo', 'kedalaman_km', 'korban_teridentifikasi', 'skor_anomali']
-    ].sort_values(by='skor_anomali', ascending=True) # Urutkan dari yang skornya paling rendah (paling anomali)
+    ].sort_values(by='skor_anomali', ascending=True) 
     
-    # Render tabel interaktif Streamlit
     st.dataframe(df_hanya_anomali, use_container_width=True)
+
+
+# ==============================================================================
+# 3. SISTEM NAVIGASI MULTI-PAGE
+# ==============================================================================
+pg = st.navigation([
+    st.Page(halaman_dashboard, title="Dashboard Spasio-Temporal", icon="🗺️"),
+    st.Page(halaman_ml_anomali, title="Model Deteksi Anomali (ML)", icon="🧠")
+])
+
+pg.run()
